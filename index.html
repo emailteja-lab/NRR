@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>T20 WC 2026 · NRR Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #050e06;
+  --surface: #0d1a0e;
+  --card: #111f12;
+  --card2: #162118;
+  --border: #1e3320;
+  --border2: #2a4a2d;
+  --gold: #d4a72c;
+  --gold2: #f0c040;
+  --text: #e8ead6;
+  --muted: #6a7d5e;
+  --dim: #3a4e37;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Crimson Pro', Georgia, serif;
+  min-height: 100vh;
+  line-height: 1.5;
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(39,174,96,0.07) 0%, transparent 70%),
+    repeating-linear-gradient(0deg, transparent, transparent 59px, rgba(255,255,255,0.01) 59px, rgba(255,255,255,0.01) 60px),
+    repeating-linear-gradient(90deg, transparent, transparent 59px, rgba(255,255,255,0.007) 59px, rgba(255,255,255,0.007) 60px);
+  pointer-events: none; z-index: 0;
+}
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 16px; position: relative; z-index: 1; }
+
+/* ─── HEADER ─── */
+header {
+  padding: 28px 0 20px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+.header-inner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.tournament-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px; font-weight: 600; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--gold); margin-bottom: 4px;
+}
+h1 {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(30px, 8vw, 60px);
+  font-weight: 900; letter-spacing: -0.5px; line-height: 0.95;
+  color: var(--text); text-transform: uppercase;
+}
+h1 span { color: var(--gold); }
+.subtitle {
+  font-size: clamp(12px, 3vw, 15px);
+  color: var(--muted); margin-top: 6px; font-style: italic;
+}
+.live-badge {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  background: rgba(212,167,44,0.1); border: 1px solid rgba(212,167,44,0.3);
+  border-radius: 4px; padding: 6px 10px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+  color: var(--gold); text-transform: uppercase; white-space: nowrap;
+}
+.live-dot {
+  width: 6px; height: 6px; background: var(--gold);
+  border-radius: 50%; flex-shrink: 0;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(1.4)} }
+
+/* ─── SECTION TITLES ─── */
+.section-title {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px; font-weight: 700; letter-spacing: 2.5px;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+/* ─── COMPLETED RESULTS ─── */
+.results-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 24px;
+}
+.result-chip {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 12px;
+}
+.result-chip .match-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 9px; font-weight: 600; letter-spacing: 2px;
+  color: var(--muted); text-transform: uppercase; margin-bottom: 3px;
+}
+.result-chip .match-result {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(13px, 3.5vw, 17px); font-weight: 700; color: var(--text);
+  line-height: 1.2;
+}
+.result-chip .match-detail { color: var(--muted); font-size: clamp(10px, 2.5vw, 12px); margin-top: 2px; }
+
+/* ─── NOTE BOX ─── */
+.note-box {
+  background: rgba(212,167,44,0.06);
+  border: 1px solid rgba(212,167,44,0.2);
+  border-radius: 6px; padding: 10px 14px;
+  margin-bottom: 14px; font-size: 12px; color: var(--muted);
+  line-height: 1.5;
+}
+.note-box strong { color: var(--gold); }
+
+/* ─── TABLE WRAPPER (horizontal scroll on mobile) ─── */
+.table-wrapper {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; margin-bottom: 28px;
+}
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.points-table {
+  width: 100%; min-width: 480px;
+  border-collapse: collapse;
+  font-family: 'Barlow Condensed', sans-serif;
+}
+.points-table thead tr {
+  background: rgba(212,167,44,0.08);
+  border-bottom: 1px solid var(--border2);
+}
+.points-table th {
+  padding: 9px 10px; text-align: left;
+  font-size: 9px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted); white-space: nowrap;
+}
+.points-table th.num { text-align: right; }
+.points-table tbody tr {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+.points-table tbody tr:last-child { border-bottom: none; }
+.points-table td { padding: 11px 10px; font-size: 14px; font-weight: 500; }
+.points-table td.num { text-align: right; font-weight: 600; }
+
+/* Hide NRR bar column on mobile (decorative) */
+.col-bar { display: none; }
+
+.team-cell { display: flex; align-items: center; gap: 8px; }
+.team-flag {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 900; flex-shrink: 0;
+}
+.flag-IND { background: #F4A83A22; color: #F4A83A; border: 1.5px solid #F4A83A55; }
+.flag-SA  { background: #1DB95422; color: #1DB954; border: 1.5px solid #1DB95455; }
+.flag-WI  { background: #c0392b22; color: #e74c3c; border: 1.5px solid #c0392b55; }
+.flag-ZIM { background: #EF2B2D22; color: #EF2B2D; border: 1.5px solid #EF2B2D55; }
+
+.team-name { font-weight: 700; font-size: 15px; letter-spacing: 0.3px; }
+.pos-badge {
+  width: 20px; height: 20px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800; flex-shrink: 0;
+}
+.pos-1,.pos-2 { background: rgba(212,167,44,0.15); color: var(--gold); border: 1px solid rgba(212,167,44,0.3); }
+.pos-3,.pos-4 { background: rgba(255,255,255,0.05); color: var(--muted); border: 1px solid var(--border); }
+
+.nrr-positive { color: #2ecc71; }
+.nrr-negative { color: #e74c3c; }
+.nrr-zero { color: var(--muted); }
+
+.pts-badge {
+  display: inline-block; background: rgba(212,167,44,0.12);
+  color: var(--gold); border-radius: 3px;
+  padding: 1px 5px; font-weight: 800; font-size: 14px;
+}
+.pts-zero { background: rgba(255,255,255,0.05); color: var(--muted); }
+
+.qual-tag {
+  font-size: 9px; font-weight: 700; letter-spacing: 1px;
+  padding: 2px 5px; border-radius: 3px;
+  text-transform: uppercase; white-space: nowrap;
+}
+.qual-sf  { background: rgba(39,174,96,0.15); color: #2ecc71; border: 1px solid rgba(39,174,96,0.3); }
+.qual-no  { background: rgba(231,76,60,0.15);  color: #e74c3c; border: 1px solid rgba(231,76,60,0.3); }
+.qual-maybe { background: rgba(212,167,44,0.12); color: var(--gold); border: 1px solid rgba(212,167,44,0.25); }
+
+.delta-badge {
+  font-size: 11px; font-weight: 700; padding: 1px 5px; border-radius: 3px;
+  font-family: 'Barlow Condensed', sans-serif; letter-spacing: 0.5px; display: inline-block;
+}
+.delta-up   { background: rgba(46,204,113,0.15); color: #2ecc71; }
+.delta-down { background: rgba(231,76,60,0.15);  color: #e74c3c; }
+
+/* SF row highlight */
+tr.sf-candidate td:first-child { border-left: 3px solid var(--gold); }
+tr.eliminated-row td:first-child { border-left: 3px solid rgba(231,76,60,0.3); }
+
+/* ─── MATCH CARDS ─── */
+.matches-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px; margin-bottom: 12px;
+}
+.match-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+  transition: border-color 0.3s;
+}
+.match-card.has-result { border-color: var(--border2); }
+.match-header {
+  background: var(--card2); padding: 8px 12px;
+  display: flex; justify-content: space-between; align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.match-date {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 9px; font-weight: 600; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase;
+}
+.match-num {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 9px; font-weight: 700; letter-spacing: 1px; color: var(--dim); text-transform: uppercase;
+}
+.teams-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 12px 10px; gap: 6px;
+}
+.team-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  cursor: pointer; padding: 10px 6px; border-radius: 8px;
+  border: 2px solid transparent; background: transparent;
+  transition: all 0.2s; position: relative;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 70px; touch-action: manipulation;
+}
+.team-btn:hover { background: rgba(255,255,255,0.04); }
+.team-btn:active { transform: scale(0.96); }
+.team-btn.selected { border-color: var(--gold); background: rgba(212,167,44,0.07); }
+.team-btn .team-icon {
+  width: 38px; height: 38px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 14px; font-weight: 900;
+}
+.team-btn .t-name {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(14px, 4vw, 18px); font-weight: 800;
+  letter-spacing: 0.5px; color: var(--text);
+}
+.team-btn.selected .t-name { color: var(--gold); }
+.vs-label {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px; font-weight: 700; color: var(--dim); letter-spacing: 1px;
+}
+.winner-crown {
+  position: absolute; top: -5px; right: 4px;
+  font-size: 12px; display: none;
+}
+.team-btn.selected .winner-crown { display: block; }
+
+/* ─── WIN SELECTOR ─── */
+.win-selector { padding: 0 12px 12px; display: none; }
+.win-selector.visible { display: block; }
+.win-type-tabs {
+  display: flex; gap: 6px; margin-bottom: 10px;
+}
+.tab-btn {
+  flex: 1; padding: 8px 4px;
+  border: 1px solid var(--border2); border-radius: 5px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  transition: all 0.2s; touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.tab-btn:active { transform: scale(0.97); }
+.tab-btn.active { background: rgba(212,167,44,0.1); border-color: rgba(212,167,44,0.4); color: var(--gold); }
+
+.margin-grid { display: grid; gap: 5px; }
+.margin-btn {
+  padding: 9px 10px; border: 1px solid var(--border); border-radius: 5px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: clamp(11px, 3vw, 13px); font-weight: 600; text-align: left;
+  transition: all 0.18s; display: flex; justify-content: space-between; align-items: center;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  min-height: 38px;
+}
+.margin-btn:active { transform: scale(0.98); }
+.margin-btn.selected { background: rgba(212,167,44,0.1); border-color: rgba(212,167,44,0.5); color: var(--gold2); }
+.nrr-hint { font-size: 10px; color: var(--muted); font-weight: 500; }
+.margin-btn.selected .nrr-hint { color: rgba(212,167,44,0.7); }
+
+.clear-btn {
+  width: 100%; padding: 8px; margin-top: 8px;
+  border: 1px dashed var(--border); border-radius: 4px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+  transition: all 0.2s; touch-action: manipulation;
+}
+.clear-btn:hover, .clear-btn:active { border-color: #e74c3c55; color: #e74c3c; }
+
+/* ─── PROJECTED SECTION ─── */
+.projected-section { margin-top: 28px; }
+.proj-header {
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;
+  gap: 8px; margin-bottom: 14px;
+}
+.scenario-counter {
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px;
+  color: var(--gold); text-transform: uppercase;
+  background: rgba(212,167,44,0.08); border: 1px solid rgba(212,167,44,0.2);
+  padding: 4px 10px; border-radius: 4px;
+}
+.reset-all {
+  padding: 6px 12px; border: 1px solid var(--border2); border-radius: 4px;
+  background: transparent; color: var(--muted); cursor: pointer;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
+  transition: all 0.2s; touch-action: manipulation;
+}
+.reset-all:active { border-color: #e74c3c55; color: #e74c3c; }
+
+footer {
+  margin-top: 48px; padding: 20px 0;
+  border-top: 1px solid var(--border);
+  text-align: center; font-size: 11px; color: var(--dim); font-style: italic;
+  line-height: 1.6;
+}
+
+/* ─── RESPONSIVE BREAKPOINTS ─── */
+@media (max-width: 600px) {
+  .container { padding: 0 12px; }
+  header { padding: 20px 0 16px; }
+
+  .header-inner { flex-wrap: wrap; }
+  .live-badge { margin-left: auto; }
+
+  /* Stack completed results */
+  .results-summary { grid-template-columns: 1fr; gap: 8px; }
+
+  /* Single column match cards */
+  .matches-grid { grid-template-columns: 1fr; gap: 10px; }
+
+  /* Tighter teams row */
+  .teams-row { padding: 12px 10px 8px; }
+  .team-btn { padding: 8px 4px; }
+
+  /* Margin grid: single column on very small screens */
+  .margin-grid { grid-template-columns: 1fr !important; }
+  .win-selector { padding: 0 10px 10px; }
+
+  /* Table tweaks */
+  .points-table { min-width: 360px; }
+  .points-table td, .points-table th { padding: 9px 8px; }
+  .team-name { font-size: 14px; }
+
+  /* Hide W / L columns on mobile — show combined W-L */
+  .col-hide-sm { display: none; }
+
+  /* Projected table: hide NRR delta column on very small */
+  .col-delta-sm { display: none; }
+
+  .proj-header { flex-direction: column; align-items: flex-start; }
+}
+
+@media (max-width: 400px) {
+  h1 { font-size: 28px; }
+  .team-btn .team-icon { width: 32px; height: 32px; font-size: 12px; }
+  .team-btn .t-name { font-size: 13px; }
+  .margin-btn { font-size: 12px; padding: 8px 8px; }
+}
+
+@media (min-width: 601px) {
+  /* Show NRR bar on larger screens */
+  .col-bar { display: table-cell; }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="header-inner">
+      <div class="title-block">
+        <div class="tournament-label">ICC T20 World Cup 2026 · Super 8 Group 1</div>
+        <h1>NRR <span>Scenario</span> Sim</h1>
+        <div class="subtitle">Simulate every outcome of the 4 remaining Group 1 matches</div>
+      </div>
+      <div class="live-badge"><span class="live-dot"></span>Feb 23, 2026</div>
+    </div>
+  </header>
+
+  <div class="section-title">Completed Matches</div>
+  <div class="results-summary">
+    <div class="result-chip">
+      <div class="match-label">Feb 22 · Ahmedabad</div>
+      <div class="match-result">🇿🇦 SA beat IND by 76 runs</div>
+      <div class="match-detail">SA 187/7 · IND 111 all out (20 ov)</div>
+    </div>
+    <div class="result-chip">
+      <div class="match-label">Feb 23 · Mumbai</div>
+      <div class="match-result">🏝️ WI beat ZIM by 107 runs</div>
+      <div class="match-detail">WI 254/6 · ZIM 147 (17.4 ov)</div>
+    </div>
+  </div>
+
+  <div class="section-title">Current Standings</div>
+  <div class="note-box">
+    <strong>NRR note:</strong> "Win by runs" assumes the winner bats first and scores 165. "Win by overs" assumes a 155-run target is chased down early. These representative scores model NRR impact proportionally.
+  </div>
+  <div class="table-wrapper">
+    <div class="table-scroll">
+      <table class="points-table" id="standingsTable">
+        <thead>
+          <tr>
+            <th style="width:28px">#</th>
+            <th>Team</th>
+            <th class="num col-hide-sm">W</th>
+            <th class="num col-hide-sm">L</th>
+            <th class="num">Pts</th>
+            <th class="num">NRR</th>
+            <th class="num col-bar">NRR Bar</th>
+            <th class="num">Status</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="section-title">Remaining Matches — Tap to set outcomes</div>
+  <div class="matches-grid" id="matchesGrid"></div>
+
+  <div class="projected-section">
+    <div class="proj-header">
+      <div class="section-title" style="margin-bottom:0; flex:1; min-width:200px">Projected Final Standings</div>
+      <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap">
+        <div class="scenario-counter" id="scenarioCounter">0 of 4 set</div>
+        <button class="reset-all" onclick="resetAll()">✕ Reset All</button>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <div class="table-scroll">
+        <table class="points-table" id="projectedTable">
+          <thead>
+            <tr>
+              <th style="width:28px">#</th>
+              <th>Team</th>
+              <th class="num col-hide-sm">W</th>
+              <th class="num col-hide-sm">L</th>
+              <th class="num">Pts</th>
+              <th class="num col-delta-sm">NRR Δ</th>
+              <th class="num">NRR</th>
+              <th class="num">Status</th>
+            </tr>
+          </thead>
+          <tbody id="projectedBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    NRR = (Runs Scored ÷ Overs Faced) − (Runs Conceded ÷ Overs Bowled) · ICC standard formula<br>
+    Representative match scores are used to model NRR impact across scenarios.
+  </footer>
+</div>
+
+<script>
+// ICC NRR rule: if a team is ALL OUT, their full 20-over allocation is used,
+// not the overs they actually faced. ZIM was all out in 17.4 ov → ob=20.
+// IND was all out in 20 ov → ob=20 (no change).
+// Correspondingly, WI's ow=20 (bowling against ZIM who were all out).
+const BASE = {
+  IND: { scored: 111, ob: 20, conceded: 187, ow: 20, pts: 0, wins: 0, losses: 1, played: 1 },
+  SA:  { scored: 187, ob: 20, conceded: 111, ow: 20, pts: 2, wins: 1, losses: 0, played: 1 },
+  WI:  { scored: 254, ob: 20, conceded: 147, ow: 20, pts: 2, wins: 1, losses: 0, played: 1 },
+  ZIM: { scored: 147, ob: 20, conceded: 254, ow: 20, pts: 0, wins: 0, losses: 1, played: 1 }
+};
+
+const TEAM_META = {
+  IND: { name: 'India',       abbr: 'IND', cls: 'flag-IND' },
+  SA:  { name: 'S. Africa',   abbr: 'SA',  cls: 'flag-SA'  },
+  WI:  { name: 'West Indies', abbr: 'WI',  cls: 'flag-WI'  },
+  ZIM: { name: 'Zimbabwe',    abbr: 'ZIM', cls: 'flag-ZIM' }
+};
+
+const MATCHES = [
+  { id: 0, team1: 'WI',  team2: 'SA',  label: 'Match 3', date: 'Feb 26 · Ahmedabad' },
+  { id: 1, team1: 'IND', team2: 'ZIM', label: 'Match 4', date: 'Feb 26 · Chennai' },
+  { id: 2, team1: 'SA',  team2: 'ZIM', label: 'Match 5', date: 'Mar 1 · Delhi' },
+  { id: 3, team1: 'IND', team2: 'WI',  label: 'Match 6', date: 'Mar 1 · Kolkata' }
+];
+
+const RUN_MARGINS = [
+  { label: '10–25 runs',   value: 17,  hint: 'narrow' },
+  { label: '26–50 runs',   value: 38,  hint: 'comfortable' },
+  { label: '51–75 runs',   value: 63,  hint: 'convincing' },
+  { label: '76–100 runs',  value: 88,  hint: 'dominant' },
+  { label: '101–125 runs', value: 112, hint: 'emphatic' }
+];
+const OVER_MARGINS = [2,3,4,5,6,7,8,9,10,11,12].map(o => ({
+  label: `Won with ${o} over${o===1?'':'s'} to spare`, overs: o
+}));
+
+const results  = { 0: null, 1: null, 2: null, 3: null };
+const winTypes = { 0: 'runs', 1: 'runs', 2: 'runs', 3: 'runs' };
+
+function nrr(t) { return (t.scored / t.ob) - (t.conceded / t.ow); }
+function cloneBase() { const s={}; for(const k in BASE) s[k]={...BASE[k]}; return s; }
+
+function applyResult(state, match, result) {
+  const { team1, team2 } = match;
+  const w = result.winner, l = w === team1 ? team2 : team1;
+
+  if (result.type === 'runs') {
+    const wS = 165, lS = Math.max(0, wS - result.value);
+    state[w].scored += wS; state[w].ob += 20; state[w].conceded += lS; state[w].ow += 20;
+    state[w].pts += 2; state[w].wins++; state[w].played++;
+    state[l].scored += lS; state[l].ob += 20; state[l].conceded += wS; state[l].ow += 20;
+    state[l].losses++; state[l].played++;
+  } else {
+    const target = 156, lS = 155, ov = 20 - result.overs;
+    state[l].scored += lS; state[l].ob += 20; state[l].conceded += target; state[l].ow += ov;
+    state[l].losses++; state[l].played++;
+    state[w].scored += target; state[w].ob += ov; state[w].conceded += lS; state[w].ow += 20;
+    state[w].pts += 2; state[w].wins++; state[w].played++;
+  }
+}
+
+function computeProjected() {
+  const s = cloneBase();
+  for(const mId in results) if(results[mId]) applyResult(s, MATCHES[+mId], results[mId]);
+  return s;
+}
+
+function sortTeams(s) {
+  return Object.keys(s).sort((a,b) => {
+    const d = s[b].pts - s[a].pts;
+    return d !== 0 ? d : nrr(s[b]) - nrr(s[a]);
+  });
+}
+
+function fmtNRR(v) {
+  if(!isFinite(v)) return '0.000';
+  return (v>=0?'+':'') + v.toFixed(3);
+}
+
+function renderCurrentTable() {
+  const proj = computeProjected();
+  const sorted = sortTeams(proj);
+  const base = cloneBase();
+  const body = document.getElementById('tableBody');
+  body.innerHTML = '';
+
+  sorted.forEach((team, i) => {
+    const bd = base[team], pos = i+1;
+    const currNRR = nrr(bd);
+    const nc = currNRR>0?'nrr-positive':currNRR<0?'nrr-negative':'nrr-zero';
+    const barPct = Math.min(100, Math.abs(currNRR)/5*100);
+    const meta = TEAM_META[team];
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="pos-badge pos-${pos}">${pos}</span></td>
+      <td><div class="team-cell">
+        <div class="team-flag ${meta.cls}">${meta.abbr[0]}</div>
+        <span class="team-name">${meta.name}</span>
+      </div></td>
+      <td class="num col-hide-sm">${bd.wins}</td>
+      <td class="num col-hide-sm">${bd.losses}</td>
+      <td class="num"><span class="pts-badge ${bd.pts===0?'pts-zero':''}">${bd.pts}</span></td>
+      <td class="num ${nc}">${fmtNRR(currNRR)}</td>
+      <td class="num col-bar">
+        <div style="display:flex;align-items:center;justify-content:flex-end">
+          <div style="width:70px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${barPct}%;border-radius:2px;background:${currNRR>=0?'#2ecc71':'#e74c3c'};transition:width 0.5s"></div>
+          </div>
+        </div>
+      </td>
+      <td class="num"></td>`;
+    body.appendChild(tr);
+  });
+}
+
+function renderProjectedTable() {
+  const proj = computeProjected();
+  const base = cloneBase();
+  const sorted = sortTeams(proj);
+  const body = document.getElementById('projectedBody');
+  const matchesSet = Object.values(results).filter(r=>r!==null).length;
+  body.innerHTML = '';
+
+  sorted.forEach((team, i) => {
+    const pd = proj[team], bd = base[team];
+    const projNRR = nrr(pd), delta = projNRR - nrr(bd);
+    const nc = projNRR>0?'nrr-positive':projNRR<0?'nrr-negative':'nrr-zero';
+    const pos = i+1, meta = TEAM_META[team];
+
+    let statusHtml = '';
+    if (matchesSet === 4) {
+      statusHtml = pos<=2 ? '<span class="qual-tag qual-sf">SEMI-FINAL</span>' : '<span class="qual-tag qual-no">ELIMINATED</span>';
+    } else if (matchesSet > 0) {
+      if (pos<=2 && pd.pts>=4) statusHtml = '<span class="qual-tag qual-sf">Likely SF</span>';
+      else if (pd.pts===0 && pd.played>=3) statusHtml = '<span class="qual-tag qual-no">Likely Out</span>';
+      else statusHtml = '<span class="qual-tag qual-maybe">TBD</span>';
+    }
+
+    const deltaHtml = delta!==0
+      ? `<span class="delta-badge ${delta>0?'delta-up':'delta-down'}">${delta>=0?'+':''}${delta.toFixed(3)}</span>`
+      : `<span style="color:var(--dim)">—</span>`;
+
+    const tr = document.createElement('tr');
+    tr.className = pos<=2 ? 'sf-candidate' : 'eliminated-row';
+    tr.innerHTML = `
+      <td><span class="pos-badge pos-${pos}">${pos}</span></td>
+      <td><div class="team-cell">
+        <div class="team-flag ${meta.cls}">${meta.abbr[0]}</div>
+        <span class="team-name">${meta.name}</span>
+      </div></td>
+      <td class="num col-hide-sm">${pd.wins}</td>
+      <td class="num col-hide-sm">${pd.losses}</td>
+      <td class="num"><span class="pts-badge ${pd.pts===0?'pts-zero':''}">${pd.pts}</span></td>
+      <td class="num col-delta-sm">${deltaHtml}</td>
+      <td class="num ${nc}" style="font-weight:700">${fmtNRR(projNRR)}</td>
+      <td class="num">${statusHtml}</td>`;
+    body.appendChild(tr);
+  });
+
+  document.getElementById('scenarioCounter').textContent = `${matchesSet} of 4 set`;
+}
+
+function updateWinTypeUI(matchId) {
+  const type = winTypes[matchId];
+  document.querySelectorAll(`[data-match="${matchId}"] .tab-btn`).forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.type === type)
+  );
+  const grid = document.querySelector(`[data-match="${matchId}"] .margin-grid`);
+  grid.innerHTML = '';
+  const isMobile = window.innerWidth < 600;
+
+  if (type === 'runs') {
+    grid.style.gridTemplateColumns = isMobile ? '1fr' : '1fr 1fr';
+    RUN_MARGINS.forEach(m => {
+      const btn = document.createElement('button');
+      btn.className = 'margin-btn';
+      btn.innerHTML = `${m.label} <span class="nrr-hint">${m.hint}</span>`;
+      const r = results[matchId];
+      if (r && r.type==='runs' && r.value===m.value) btn.classList.add('selected');
+      btn.onclick = () => selectMarginRuns(matchId, m.value);
+      grid.appendChild(btn);
+    });
+  } else {
+    grid.style.gridTemplateColumns = isMobile ? '1fr' : '1fr 1fr';
+    OVER_MARGINS.forEach(m => {
+      const btn = document.createElement('button');
+      btn.className = 'margin-btn';
+      btn.innerHTML = m.label;
+      const r = results[matchId];
+      if (r && r.type==='overs' && r.overs===m.overs) btn.classList.add('selected');
+      btn.onclick = () => selectMarginOvers(matchId, m.overs);
+      grid.appendChild(btn);
+    });
+  }
+}
+
+function selectWinner(matchId, winner) {
+  const wasSelected = results[matchId] && results[matchId].winner === winner;
+  if (wasSelected) {
+    results[matchId] = null;
+  } else {
+    const prev = results[matchId];
+    if (prev?.type==='runs') results[matchId] = { winner, type:'runs', value: prev.value };
+    else if (prev?.type==='overs') results[matchId] = { winner, type:'overs', overs: prev.overs };
+    else results[matchId] = { winner, type:'runs', value: null };
+  }
+  const card = document.querySelector(`[data-match="${matchId}"]`);
+  card.querySelectorAll('.team-btn').forEach(btn =>
+    btn.classList.toggle('selected', !wasSelected && btn.dataset.team === winner)
+  );
+  const ws = card.querySelector('.win-selector');
+  ws.classList.toggle('visible', !!results[matchId]);
+  card.classList.toggle('has-result', !!results[matchId]);
+  if (results[matchId]) updateWinTypeUI(matchId);
+  renderCurrentTable();
+  renderProjectedTable();
+}
+
+function selectWinType(matchId, type) {
+  winTypes[matchId] = type;
+  if (results[matchId]) {
+    results[matchId].type = type;
+    if (type==='runs') { results[matchId].value=null; delete results[matchId].overs; }
+    else { results[matchId].overs=null; delete results[matchId].value; }
+  }
+  updateWinTypeUI(matchId);
+  renderProjectedTable();
+}
+
+function selectMarginRuns(matchId, value) {
+  if (!results[matchId]) return;
+  results[matchId].value = value; results[matchId].type = 'runs';
+  updateWinTypeUI(matchId);
+  renderCurrentTable(); renderProjectedTable();
+}
+
+function selectMarginOvers(matchId, overs) {
+  if (!results[matchId]) return;
+  results[matchId].overs = overs; results[matchId].type = 'overs';
+  updateWinTypeUI(matchId);
+  renderCurrentTable(); renderProjectedTable();
+}
+
+function clearMatch(matchId) {
+  results[matchId] = null;
+  const card = document.querySelector(`[data-match="${matchId}"]`);
+  card.querySelectorAll('.team-btn').forEach(btn => btn.classList.remove('selected'));
+  card.querySelector('.win-selector').classList.remove('visible');
+  card.classList.remove('has-result');
+  renderCurrentTable(); renderProjectedTable();
+}
+
+function resetAll() { for(let i=0;i<4;i++) clearMatch(i); }
+
+function buildMatchCards() {
+  const grid = document.getElementById('matchesGrid');
+  grid.innerHTML = '';
+  MATCHES.forEach(match => {
+    const t1 = TEAM_META[match.team1], t2 = TEAM_META[match.team2];
+    const card = document.createElement('div');
+    card.className = 'match-card';
+    card.dataset.match = match.id;
+    card.innerHTML = `
+      <div class="match-header">
+        <span class="match-date">${match.date}</span>
+        <span class="match-num">${match.label}</span>
+      </div>
+      <div class="teams-row">
+        <button class="team-btn" data-team="${match.team1}" onclick="selectWinner(${match.id},'${match.team1}')">
+          <span class="winner-crown">👑</span>
+          <div class="team-icon ${t1.cls}">${t1.abbr[0]}</div>
+          <span class="t-name">${t1.abbr}</span>
+        </button>
+        <span class="vs-label">VS</span>
+        <button class="team-btn" data-team="${match.team2}" onclick="selectWinner(${match.id},'${match.team2}')">
+          <span class="winner-crown">👑</span>
+          <div class="team-icon ${t2.cls}">${t2.abbr[0]}</div>
+          <span class="t-name">${t2.abbr}</span>
+        </button>
+      </div>
+      <div class="win-selector">
+        <div class="win-type-tabs">
+          <button class="tab-btn active" data-type="runs" onclick="selectWinType(${match.id},'runs')">By Runs</button>
+          <button class="tab-btn" data-type="overs" onclick="selectWinType(${match.id},'overs')">By Overs</button>
+        </div>
+        <div class="margin-grid" id="margin_${match.id}"></div>
+        <button class="clear-btn" onclick="clearMatch(${match.id})">✕ Clear match</button>
+      </div>`;
+    grid.appendChild(card);
+  });
+}
+
+// Re-render margin grid on resize (changes column layout)
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    for(let i=0;i<4;i++) { if(results[i]) updateWinTypeUI(i); }
+  }, 200);
+});
+
+buildMatchCards();
+renderCurrentTable();
+renderProjectedTable();
+</script>
+</body>
+</html>
